@@ -409,7 +409,6 @@
       startTime: 0,
       gesture: "none"
     };
-    let lastTapTime = 0;
 
     const TAP_MOVE_THRESHOLD = 6;
     const TAP_TOL = 6;
@@ -1291,48 +1290,53 @@
     }, { passive: false });
 
     canvas.addEventListener("touchend", e => {
-      e.preventDefault();
-      if (!touchInfo.active) return;
-      const touch = e.changedTouches[0];
-      const endTime = e.timeStamp;
-      const totalDx = touch.clientX - touchInfo.startX;
-      const totalDy = touch.clientY - touchInfo.startY;
-      const absDx = Math.abs(totalDx);
-      const absDy = Math.abs(totalDy);
-      const dt = endTime - touchInfo.startTime;
+  e.preventDefault();
+  if (!touchInfo.active) return;
+  const touch = e.changedTouches[0];
+  const endTime = e.timeStamp;
+  const totalDx = touch.clientX - touchInfo.startX;
+  const totalDy = touch.clientY - touchInfo.startY;
+  const absDx = Math.abs(totalDx);
+  const absDy = Math.abs(totalDy);
+  const dt = endTime - touchInfo.startTime;
 
-      const wasGesture = touchInfo.gesture;
-      touchInfo.active = false;
+  const wasGesture = touchInfo.gesture;
+  touchInfo.active = false;
 
-      if (lockedDuringTouch) {
-        lockedDuringTouch = false;
-        return;
-      }
+  if (lockedDuringTouch) {
+    lockedDuringTouch = false;
+    return;
+  }
 
-      if (!gameStarted || gameOver) {
-        if (gameOver && !canRestartFromGameOver()) return;
-        startGame();
-        return;
-      }
-      if (!currentPiece || paused) return;
+  if (!gameStarted || gameOver) {
+    if (gameOver && !canRestartFromGameOver()) return;
+    startGame();
+    return;
+  }
+  if (!currentPiece || paused) return;
 
-      if (wasGesture === "none" && absDx < TAP_TOL && absDy < TAP_TOL) {
-        const now = endTime;
-        if (now - lastTapTime < 250) {
-          tryRotate(false);
-          lastTapTime = 0;
-        } else {
-          tryRotate(true);
-          lastTapTime = now;
-        }
-      } else {
-        if ((wasGesture === "vertical" || absDy > absDx) &&
-            totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
-          hardDrop();
-          dropCounter = 0;
-        }
-      }
-    }, { passive: false });
+  // ---- ここからタップ系の処理 ----
+  if (wasGesture === "none" && absDx < TAP_TOL && absDy < TAP_TOL) {
+    // シングルタップ：左右で回転方向を分ける
+    const rect = canvas.getBoundingClientRect();
+    const relX = touch.clientX - rect.left;
+    if (relX < rect.width / 2) {
+      // 左半分タップ → 反時計回り
+      tryRotate(false);
+    } else {
+      // 右半分タップ → 時計回り
+      tryRotate(true);
+    }
+    return;
+  } else {
+    // フリック系：下方向の素早いスワイプでハードドロップ
+    if ((wasGesture === "vertical" || absDy > absDx) &&
+        totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
+      hardDrop();
+      dropCounter = 0;
+    }
+  }
+}, { passive: false });
 
     canvas.addEventListener("click", () => {
       if (!gameStarted || gameOver) {
