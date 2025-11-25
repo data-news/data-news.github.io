@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <!-- ★ スマホ向け viewport 最適化：ダブルタップズーム等を抑制 -->
+  <!-- スマホ向け viewport 最適化：ズーム・拡大を抑制 -->
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
@@ -15,7 +15,6 @@
       margin: 0;
     }
 
-    /* ★ スワイプでのページ慣性スクロールを抑え、誤動作を減らす */
     html,
     body {
       overscroll-behavior: none;
@@ -41,6 +40,8 @@
         0 24px 80px rgba(0, 0, 0, 0.9),
         0 0 0 1px rgba(148, 163, 184, 0.2);
       max-width: 900px;
+      width: 100%;
+      justify-content: center;
     }
     .board-wrapper {
       position: relative;
@@ -58,7 +59,7 @@
         0 0 0 2px rgba(37, 99, 235, 0.9),
         0 0 35px rgba(59, 130, 246, 0.9);
       display: block;
-      touch-action: none; /* ★ キャンバス上でのスクロール・ズームを抑制 */
+      touch-action: none; /* キャンバス上でのスクロール・ズームを抑制 */
     }
     .side {
       display: flex;
@@ -120,7 +121,6 @@
       box-shadow: inset 0 0 6px rgba(15, 23, 42, 0.9);
     }
 
-    /* ★ ホールドボタン・ポーズボタンを大きめに */
     .touch-buttons {
       display: flex;
       gap: 8px;
@@ -141,9 +141,8 @@
         0 4px 12px rgba(37, 99, 235, 0.7),
         0 0 0 1px rgba(15, 23, 42, 0.9);
     }
-    /* ★ ホールドボタンをわずかに大きく */
     #holdBtn {
-      flex: 1.3;
+      flex: 1.3; /* ホールドをやや大きく */
     }
     .touch-buttons button:active {
       transform: translateY(1px);
@@ -169,18 +168,13 @@
         0 0 0 1px rgba(15, 23, 42, 0.9);
       transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.1s ease;
     }
-    #restartBtn:hover {
-      filter: brightness(1.08);
-      box-shadow:
-        0 10px 28px rgba(59, 130, 246, 0.8),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
-    }
     #restartBtn:active {
       transform: translateY(1px);
       box-shadow:
         0 4px 12px rgba(59, 130, 246, 0.7),
         0 0 0 1px rgba(15, 23, 42, 0.9);
     }
+
     .status-banner {
       position: absolute;
       inset: 0;
@@ -212,12 +206,11 @@
       min-height: 1.4em;
     }
 
-    /* ★ スマホ幅では縦並びにしてボタン位置も下側に寄せる */
+    /* スマホ幅では縦並びにして、ボタンも画面下側に来る */
     @media (max-width: 720px) {
       .tetris-wrapper {
         flex-direction: column;
         align-items: center;
-        width: 100%;
       }
       .board-wrapper {
         margin-bottom: 12px;
@@ -231,7 +224,7 @@
 <body>
   <div class="tetris-wrapper">
     <div class="board-wrapper">
-      <canvas id="board" width="300" height="600"></canvas>
+      <canvas id="board"></canvas>
       <div class="status-banner" id="statusBanner" style="display:none;">
         <span id="statusText"></span>
       </div>
@@ -262,7 +255,7 @@
           PC: <kbd>←</kbd><kbd>→</kbd> 移動 /
           <kbd>↓</kbd> ドロップ /
           <kbd>↑</kbd><kbd>Z</kbd><kbd>X</kbd> 回転 /
-          <kbd>Space</kbd> ハードドロップ /
+          <kbd>Space</kbd> ハード /
           <kbd>Shift</kbd> ホールド /
           <kbd>P</kbd> ポーズ
         </p>
@@ -283,7 +276,10 @@
   <script>
     const COLS = 10;
     const ROWS = 20;
-    const BLOCK_SIZE = 30;
+
+    // ブロックサイズは可変にする
+    const BASE_BLOCK_SIZE = 30;
+    let BLOCK_SIZE = BASE_BLOCK_SIZE;
 
     const canvas = document.getElementById("board");
     const ctx = canvas.getContext("2d");
@@ -395,7 +391,7 @@
     let screenFlash = { timer: 0, max: 0 };
     let tetrisTextEffects = [];
 
-    // ★ タッチジェスチャの種類を管理（none / horizontal / vertical）
+    // タッチジェスチャ状態
     let touchInfo = {
       active: false,
       startX: 0,
@@ -409,11 +405,31 @@
     };
     let lastTapTime = 0;
 
-    const TAP_MOVE_THRESHOLD = 10;
-    const HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
+    // タップ判定閾値（回転の誤爆防止のためやや厳しめ）
+    let TAP_MOVE_THRESHOLD = 6;
+    const TAP_TOL = 6;
+    let HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
     const SOFT_DROP_THRESHOLD = 10;
-    const HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
+    let HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
     const HARD_DROP_TIME = 160;
+
+    // このタッチ中に lockPiece が呼ばれたかどうか（次ピースへの誤ハードドロップ防止）
+    let lockedDuringTouch = false;
+
+    function updateBlockSizeAndThresholds() {
+      const isNarrow = window.innerWidth <= 720;
+      BLOCK_SIZE = isNarrow ? 24 : BASE_BLOCK_SIZE;
+
+      canvas.width = COLS * BLOCK_SIZE;
+      canvas.height = ROWS * BLOCK_SIZE;
+
+      HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
+      HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
+    }
+
+    window.addEventListener("resize", () => {
+      updateBlockSizeAndThresholds();
+    });
 
     function createBag() {
       const bag = [...TYPES];
@@ -714,6 +730,10 @@
     function lockPiece() {
       mergePiece();
       clearLines();
+      // ★ このタッチ中にロックしたことを記録
+      if (touchInfo.active) {
+        lockedDuringTouch = true;
+      }
       spawnPiece();
     }
 
@@ -1155,7 +1175,7 @@
       }
     });
 
-    // ★ タッチ操作：縦ジェスチャと横ジェスチャを明確に分離
+    // タッチ操作：縦・横ジェスチャを分離し、タップ回転の誤爆を防ぐ
     canvas.addEventListener("touchstart", e => {
       e.preventDefault();
       if (e.touches.length > 1) return;
@@ -1169,6 +1189,7 @@
       touchInfo.movedY = 0;
       touchInfo.startTime = e.timeStamp;
       touchInfo.gesture = "none";
+      lockedDuringTouch = false; // ★ このタッチでのロックフラグをリセット
     }, { passive: false });
 
     canvas.addEventListener("touchmove", e => {
@@ -1186,7 +1207,6 @@
       const totalDx = touch.clientX - touchInfo.startX;
       const totalDy = touch.clientY - touchInfo.startY;
 
-      // ★ 最初の大きな動きでジェスチャ種別を決める
       if (touchInfo.gesture === "none") {
         const absDx = Math.abs(totalDx);
         const absDy = Math.abs(totalDy);
@@ -1232,14 +1252,20 @@
       const wasGesture = touchInfo.gesture;
       touchInfo.active = false;
 
+      // このタッチ中にロックが発生していたら、次ピースに対する回転・ハードドロップを抑止
+      if (lockedDuringTouch) {
+        lockedDuringTouch = false;
+        return;
+      }
+
       if (!gameStarted || gameOver) {
         startGame();
         return;
       }
       if (!currentPiece || paused) return;
 
-      // ★ ほとんど動かしていない → タップとして回転
-      if (absDx < TAP_MOVE_THRESHOLD && absDy < TAP_MOVE_THRESHOLD) {
+      // gesture == none かつ ほとんど動いていない → タップとして回転
+      if (wasGesture === "none" && absDx < TAP_TOL && absDy < TAP_TOL) {
         const now = endTime;
         if (now - lastTapTime < 250) {
           tryRotate(false);
@@ -1249,7 +1275,7 @@
           lastTapTime = now;
         }
       } else {
-        // ★ 縦ジェスチャで、かつ高速な下方向 → ハードドロップ
+        // 縦ジェスチャ/ほぼ縦方向かつ高速に大きく下スワイプ → ハードドロップ
         if ((wasGesture === "vertical" || absDy > absDx) &&
             totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
           hardDrop();
@@ -1277,6 +1303,7 @@
     });
 
     function prepareAndStartLoop() {
+      updateBlockSizeAndThresholds();
       prepareNewGame();
       requestAnimationFrame(update);
     }
