@@ -2,12 +2,11 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <!-- スマホ向け viewport 最適化：ズーム・拡大を抑制 -->
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
   />
-  <title>テトリス（タッチ最適化版）</title>
+  <title>テトリス（スマホ最適化版）</title>
   <style>
     * {
       box-sizing: border-box;
@@ -15,164 +14,60 @@
       margin: 0;
     }
 
-    html,
-    body {
+    html, body {
       overscroll-behavior: none;
+      height: 100%;
     }
 
     body {
       background: radial-gradient(circle at top, #020617 0%, #000000 55%, #000000 100%);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: #f5f5f5;
-      min-height: 100vh;
       display: flex;
       justify-content: center;
-      align-items: flex-start;
-      padding-top: 16px;
+      align-items: center;
+      overflow: hidden; /* スクロール禁止 */
     }
+
     .tetris-wrapper {
       display: flex;
-      gap: 16px;
-      padding: 16px 20px;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      max-width: 420px;
+      height: 100vh; /* 1画面に収める前提 */
+      padding: 8px 8px 10px;
       background: rgba(9, 9, 11, 0.96);
-      border-radius: 18px;
       box-shadow:
         0 24px 80px rgba(0, 0, 0, 0.9),
         0 0 0 1px rgba(148, 163, 184, 0.2);
-      max-width: 900px;
-      width: 100%;
-      justify-content: center;
     }
+
     .board-wrapper {
       position: relative;
-      padding: 8px;
-      border-radius: 16px;
+      padding: 6px;
+      border-radius: 14px;
       background: radial-gradient(circle at top, #1e293b 0%, #020617 65%);
       box-shadow:
-        0 0 25px rgba(59, 130, 246, 0.5),
-        inset 0 0 18px rgba(15, 23, 42, 0.9);
+        0 0 22px rgba(59, 130, 246, 0.5),
+        inset 0 0 16px rgba(15, 23, 42, 0.9);
+      flex: 1 1 auto; /* 上側は残りの高さを使う */
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 0; /* flex overflow 回避 */
+      width: 100%;
     }
+
     #board {
       background: linear-gradient(180deg, #020617 0%, #020617 50%, #000000 100%);
-      border-radius: 8px;
+      border-radius: 6px;
       box-shadow:
         0 0 0 2px rgba(37, 99, 235, 0.9),
-        0 0 35px rgba(59, 130, 246, 0.9);
+        0 0 30px rgba(59, 130, 246, 0.9);
       display: block;
-      touch-action: none; /* キャンバス上でのスクロール・ズームを抑制 */
-    }
-    .side {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      width: 230px;
-    }
-    .panel {
-      background: radial-gradient(circle at top left, #111827 0%, #020617 55%);
-      border-radius: 12px;
-      padding: 10px 12px;
-      box-shadow:
-        0 0 0 1px rgba(31, 41, 55, 0.9),
-        0 10px 25px rgba(0, 0, 0, 0.8);
-    }
-    .panel h2 {
-      font-size: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #9ca3af;
-      margin-bottom: 4px;
-    }
-    .stats {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4px 8px;
-      font-size: 13px;
-    }
-    .stats span.label {
-      color: #6b7280;
-    }
-    .stats span.value {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-    }
-    #holdCanvas,
-    #nextCanvas {
-      background: radial-gradient(circle at top, #020617 0%, #020617 60%, #000000 100%);
-      border-radius: 8px;
-      width: 100%;
-      display: block;
-      box-shadow:
-        0 0 0 1px rgba(31, 41, 55, 0.9),
-        inset 0 0 15px rgba(15, 23, 42, 0.9);
-    }
-    .help {
-      font-size: 11px;
-      line-height: 1.4;
-      color: #e5e7eb;
-    }
-    .help kbd {
-      display: inline-block;
-      padding: 1px 4px;
-      margin: 0 1px;
-      border-radius: 4px;
-      border: 1px solid #4b5563;
-      font-size: 10px;
-      background: #020617;
-      box-shadow: inset 0 0 6px rgba(15, 23, 42, 0.9);
-    }
-
-    .touch-buttons {
-      display: flex;
-      gap: 8px;
-      margin-top: 6px;
-    }
-    .touch-buttons button {
-      flex: 1;
-      padding: 12px 0;
-      border-radius: 999px;
-      border: none;
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      cursor: pointer;
-      background: linear-gradient(135deg, #1d4ed8, #22c55e);
-      color: #f9fafb;
-      box-shadow:
-        0 4px 12px rgba(37, 99, 235, 0.7),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
-    }
-    #holdBtn {
-      flex: 1.3; /* ホールドをやや大きく */
-    }
-    .touch-buttons button:active {
-      transform: translateY(1px);
-      box-shadow:
-        0 2px 6px rgba(37, 99, 235, 0.7),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
-    }
-
-    #restartBtn {
-      margin-top: 4px;
-      width: 100%;
-      padding: 8px 0;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      background: linear-gradient(135deg, #3b82f6, #22c55e);
-      color: #fff;
-      box-shadow:
-        0 6px 16px rgba(59, 130, 246, 0.6),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
-      transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.1s ease;
-    }
-    #restartBtn:active {
-      transform: translateY(1px);
-      box-shadow:
-        0 4px 12px rgba(59, 130, 246, 0.7),
-        0 0 0 1px rgba(15, 23, 42, 0.9);
+      touch-action: none;
     }
 
     .status-banner {
@@ -183,15 +78,18 @@
       align-items: center;
       pointer-events: none;
     }
+
     .status-banner span {
-      padding: 8px 16px;
+      padding: 6px 12px;
       border-radius: 999px;
       background: rgba(0, 0, 0, 0.7);
       border: 1px solid rgba(148, 163, 184, 0.7);
       backdrop-filter: blur(6px);
-      font-size: 14px;
-      letter-spacing: 0.2em;
+      font-size: 12px;
+      letter-spacing: 0.16em;
       text-transform: uppercase;
+      text-align: center;
+      line-height: 1.5;
     }
     .status-banner span.paused {
       color: #facc15;
@@ -199,25 +97,132 @@
     .status-banner span.game-over {
       color: #f97373;
     }
-    .garbage-warning {
-      font-size: 11px;
-      color: #fca5a5;
-      margin-top: 4px;
-      min-height: 1.4em;
+
+    /* 下側 HUD：高さをほぼ固定（これを基準にブロックサイズを決める） */
+    .hud {
+      flex: 0 0 auto;
+      width: 100%;
+      max-width: 420px;
+      padding: 4px 6px 2px;
+      border-radius: 12px;
+      background: radial-gradient(circle at top left, #111827 0%, #020617 55%);
+      box-shadow:
+        0 0 0 1px rgba(31, 41, 55, 0.9),
+        0 10px 22px rgba(0, 0, 0, 0.85);
     }
 
-    /* スマホ幅では縦並びにして、ボタンも画面下側に来る */
-    @media (max-width: 720px) {
-      .tetris-wrapper {
-        flex-direction: column;
-        align-items: center;
-      }
-      .board-wrapper {
-        margin-bottom: 12px;
-      }
-      .side {
-        width: 100%;
-      }
+    .hud-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .stats {
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+    }
+    .stat {
+      display: flex;
+      gap: 2px;
+      align-items: baseline;
+    }
+    .stat-label {
+      color: #9ca3af;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .stat-value {
+      color: #e5e7eb;
+      font-variant-numeric: tabular-nums;
+      font-size: 11px;
+    }
+
+    .mini-boards {
+      display: flex;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+    #holdCanvas,
+    #nextCanvas {
+      background: radial-gradient(circle at top, #020617 0%, #020617 60%, #000000 100%);
+      border-radius: 6px;
+      box-shadow:
+        0 0 0 1px rgba(31, 41, 55, 0.9),
+        inset 0 0 10px rgba(15, 23, 42, 0.9);
+      display: block;
+    }
+    #holdCanvas {
+      width: 70px;
+      height: 50px;
+    }
+    #nextCanvas {
+      width: 70px;
+      height: 50px;
+    }
+
+    .controls-text {
+      font-size: 10px;
+      color: #e5e7eb;
+      opacity: 0.9;
+      text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+    }
+
+    .touch-buttons {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .touch-buttons button,
+    #restartBtn {
+      flex: 1;
+      padding: 6px 0;
+      border-radius: 999px;
+      border: none;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: linear-gradient(135deg, #1d4ed8, #22c55e);
+      color: #f9fafb;
+      box-shadow:
+        0 4px 10px rgba(37, 99, 235, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    #holdBtn {
+      flex: 1.1;
+    }
+    #pauseBtn {
+      flex: 1;
+    }
+    #restartBtn {
+      flex: 1.1;
+      margin-top: 3px;
+      background: linear-gradient(135deg, #3b82f6, #22c55e);
+    }
+    .touch-buttons button:active,
+    #restartBtn:active {
+      transform: translateY(1px);
+      box-shadow:
+        0 2px 6px rgba(37, 99, 235, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+
+    .garbage-warning {
+      font-size: 9px;
+      color: #fca5a5;
+      margin-top: 1px;
+      min-height: 1.2em;
+      text-align: right;
+      opacity: 0.9;
     }
   </style>
 </head>
@@ -229,47 +234,41 @@
         <span id="statusText"></span>
       </div>
     </div>
-    <div class="side">
-      <div class="panel">
-        <h2>Stats</h2>
+
+    <div class="hud">
+      <div class="hud-row">
         <div class="stats">
-          <span class="label">Score</span><span class="value" id="score">0</span>
-          <span class="label">Lines</span><span class="value" id="lines">0</span>
-          <span class="label">Level</span><span class="value" id="level">1</span>
+          <div class="stat">
+            <span class="stat-label">SCORE</span>
+            <span class="stat-value" id="score">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">LINES</span>
+            <span class="stat-value" id="lines">0</span>
+          </div>
+          <div class="stat">
+            <span class="stat-label">LV</span>
+            <span class="stat-value" id="level">1</span>
+          </div>
+        </div>
+        <div class="mini-boards">
+          <canvas id="holdCanvas" width="70" height="50"></canvas>
+          <canvas id="nextCanvas" width="70" height="50"></canvas>
         </div>
       </div>
 
-      <div class="panel">
-        <h2>Hold</h2>
-        <canvas id="holdCanvas" width="120" height="80"></canvas>
-      </div>
-
-      <div class="panel">
-        <h2>Next</h2>
-        <canvas id="nextCanvas" width="120" height="200"></canvas>
-      </div>
-
-      <div class="panel help">
-        <h2>Controls</h2>
-        <p>
-          PC: <kbd>←</kbd><kbd>→</kbd> 移動 /
-          <kbd>↓</kbd> ドロップ /
-          <kbd>↑</kbd><kbd>Z</kbd><kbd>X</kbd> 回転 /
-          <kbd>Space</kbd> ハード /
-          <kbd>Shift</kbd> ホールド /
-          <kbd>P</kbd> ポーズ
-        </p>
-        <p>
-          スマホ: キャンバスをタップ／スワイプで操作（タップで開始）
-        </p>
-        <div class="touch-buttons">
-          <button id="holdBtn" type="button">HOLD</button>
-          <button id="pauseBtn" type="button">PAUSE</button>
+      <div class="hud-row" style="margin-bottom:3px;">
+        <div class="controls-text">
+          Tap: rotate / Swipe: move / Down flick: hard drop
         </div>
-        <p class="garbage-warning" id="garbageInfo"></p>
       </div>
 
-      <button id="restartBtn">Restart</button>
+      <div class="touch-buttons">
+        <button id="holdBtn" type="button">HOLD</button>
+        <button id="pauseBtn" type="button">PAUSE</button>
+        <button id="restartBtn" type="button">RESTART</button>
+      </div>
+      <div class="garbage-warning" id="garbageInfo"></div>
     </div>
   </div>
 
@@ -277,9 +276,11 @@
     const COLS = 10;
     const ROWS = 20;
 
-    // ブロックサイズは可変にする
     const BASE_BLOCK_SIZE = 30;
     let BLOCK_SIZE = BASE_BLOCK_SIZE;
+
+    let HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
+    let HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
 
     const canvas = document.getElementById("board");
     const ctx = canvas.getContext("2d");
@@ -292,12 +293,12 @@
     const scoreEl = document.getElementById("score");
     const linesEl = document.getElementById("lines");
     const levelEl = document.getElementById("level");
-    const restartBtn = document.getElementById("restartBtn");
     const statusBanner = document.getElementById("statusBanner");
     const statusText = document.getElementById("statusText");
     const garbageInfo = document.getElementById("garbageInfo");
     const holdBtn = document.getElementById("holdBtn");
     const pauseBtn = document.getElementById("pauseBtn");
+    const restartBtn = document.getElementById("restartBtn");
 
     const TETROMINOS = {
       I: [
@@ -356,7 +357,6 @@
       L: "#f97316",
       G: "#4b5563"
     };
-
     const GHOST_COLOR = "rgba(148, 163, 184, 0.35)";
 
     const LINE_SCORES = {
@@ -379,6 +379,7 @@
     let lastTime = 0;
     let paused = false;
     let gameOver = false;
+    let gameOverTime = 0;
     let gameStarted = false;
 
     let nextGarbageInMs = 20000;
@@ -391,7 +392,7 @@
     let screenFlash = { timer: 0, max: 0 };
     let tetrisTextEffects = [];
 
-    // タッチジェスチャ状態
+    // タッチ状態
     let touchInfo = {
       active: false,
       startX: 0,
@@ -405,20 +406,28 @@
     };
     let lastTapTime = 0;
 
-    // タップ判定閾値（回転の誤爆防止のためやや厳しめ）
-    let TAP_MOVE_THRESHOLD = 6;
+    const TAP_MOVE_THRESHOLD = 6;
     const TAP_TOL = 6;
-    let HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
     const SOFT_DROP_THRESHOLD = 10;
-    let HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
     const HARD_DROP_TIME = 160;
 
-    // このタッチ中に lockPiece が呼ばれたかどうか（次ピースへの誤ハードドロップ防止）
     let lockedDuringTouch = false;
 
-    function updateBlockSizeAndThresholds() {
-      const isNarrow = window.innerWidth <= 720;
-      BLOCK_SIZE = isNarrow ? 24 : BASE_BLOCK_SIZE;
+    function updateGeometry() {
+      const wrapper = document.querySelector(".tetris-wrapper");
+      const hud = document.querySelector(".hud");
+
+      const vh = window.innerHeight;
+      const hudHeight = hud.getBoundingClientRect().height || 150;
+      const availableHeight = Math.max( vh - hudHeight - 20, 120 );
+      const availableWidth = Math.min(
+        wrapper.getBoundingClientRect().width || window.innerWidth,
+        window.innerWidth
+      );
+
+      const sizeByHeight = Math.floor(availableHeight / ROWS);
+      const sizeByWidth = Math.floor(availableWidth / COLS);
+      BLOCK_SIZE = Math.max(12, Math.min(sizeByHeight, sizeByWidth));
 
       canvas.width = COLS * BLOCK_SIZE;
       canvas.height = ROWS * BLOCK_SIZE;
@@ -428,7 +437,7 @@
     }
 
     window.addEventListener("resize", () => {
-      updateBlockSizeAndThresholds();
+      updateGeometry();
     });
 
     function createBag() {
@@ -508,7 +517,8 @@
       if (collides(0, 0, currentPiece.matrix, currentPiece.x, currentPiece.y)) {
         gameOver = true;
         gameStarted = false;
-        showStatus("GAME OVER", true);
+        gameOverTime = performance.now();
+        showGameOverStatus();
       }
       drawSidePanels();
     }
@@ -622,7 +632,7 @@
         const baseColor = COLORS[cell.type] || "#e5e7eb";
         const px = cell.x + 0.5;
         const py = cell.y + 0.5;
-        const count = 5;
+        const count = 4;
 
         for (let i = 0; i < count; i++) {
           const isInward = Math.random() < 0.5;
@@ -730,7 +740,6 @@
     function lockPiece() {
       mergePiece();
       clearLines();
-      // ★ このタッチ中にロックしたことを記録
       if (touchInfo.active) {
         lockedDuringTouch = true;
       }
@@ -760,8 +769,16 @@
 
     function showStatus(text, isGameOver = false) {
       statusBanner.style.display = "flex";
-      statusText.textContent = text;
       statusText.className = isGameOver ? "game-over" : "paused";
+      statusText.innerHTML = text;
+    }
+
+    function showGameOverStatus() {
+      const msg =
+        "GAME&nbsp;OVER<br>" +
+        "SCORE " + score + " / LINES " + lines + " / LV " + level +
+        "<br>WAIT 5 SEC";
+      showStatus(msg, true);
     }
 
     function hideStatus() {
@@ -771,13 +788,19 @@
     }
 
     function togglePause() {
-      if (gameOver || !gameStarted) return;
+      if (!gameStarted || gameOver) return;
       paused = !paused;
       if (paused) {
         showStatus("PAUSED", false);
       } else {
         hideStatus();
       }
+    }
+
+    function canRestartFromGameOver() {
+      if (!gameOver) return true;
+      const elapsed = performance.now() - gameOverTime;
+      return elapsed >= 5000;
     }
 
     function computeGhostY() {
@@ -939,7 +962,7 @@
         const ratio = t.timer / t.max;
         const alpha = Math.min(1, 1.1 * ratio);
         const yOffset = (1 - ratio) * 40;
-        ctx.font = "bold 40px system-ui, sans-serif";
+        ctx.font = "bold 32px system-ui, sans-serif";
         ctx.fillStyle = `rgba(248,250,252,${alpha})`;
         ctx.strokeStyle = `rgba(59,130,246,${alpha})`;
         ctx.lineWidth = 2;
@@ -984,7 +1007,7 @@
       ctx2.clearRect(0, 0, canvasWidth, canvasHeight);
       if (!type) return;
       const matrix = TETROMINOS[type];
-      const size = 20;
+      const size = 16;
 
       let minX = 4, maxX = -1, minY = 4, maxY = -1;
       for (let y = 0; y < 4; y++) {
@@ -1011,14 +1034,19 @@
     }
 
     function drawHold() {
-      drawMiniPiece(holdCtx, holdType, holdCanvas.width, holdCanvas.height);
+      drawMiniPiece(
+        holdCtx,
+        holdType,
+        holdCanvas.width,
+        holdCanvas.height
+      );
     }
 
     function drawNext() {
       nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
-      const previewCount = 5;
-      const size = 18;
-      const verticalGap = 4;
+      const previewCount = 3;
+      const size = 14;
+      const verticalGap = 2;
 
       for (let index = 0; index < Math.min(previewCount, nextQueue.length); index++) {
         const type = nextQueue[index];
@@ -1061,7 +1089,7 @@
 
     function updateGarbageInfo() {
       const sec = (nextGarbageInMs / 1000).toFixed(1);
-      garbageInfo.textContent = `Incoming Garbage: ${sec}s`;
+      garbageInfo.textContent = `Garbage in: ${sec}s`;
     }
 
     function addGarbageLines(count) {
@@ -1137,11 +1165,17 @@
         e.preventDefault();
       }
 
-      if (!currentPiece || gameOver || !gameStarted) {
-        if (e.code === "KeyP") togglePause();
+      if (!currentPiece || !gameStarted) {
+        if (gameOver) {
+          if (!canRestartFromGameOver()) return;
+          if (e.code === "Space" || e.code === "Enter") {
+            startGame();
+          }
+        }
         return;
       }
       if (paused && e.code !== "KeyP") return;
+      if (gameOver) return;
 
       switch (e.code) {
         case "ArrowLeft":
@@ -1175,7 +1209,6 @@
       }
     });
 
-    // タッチ操作：縦・横ジェスチャを分離し、タップ回転の誤爆を防ぐ
     canvas.addEventListener("touchstart", e => {
       e.preventDefault();
       if (e.touches.length > 1) return;
@@ -1189,7 +1222,7 @@
       touchInfo.movedY = 0;
       touchInfo.startTime = e.timeStamp;
       touchInfo.gesture = "none";
-      lockedDuringTouch = false; // ★ このタッチでのロックフラグをリセット
+      lockedDuringTouch = false;
     }, { passive: false });
 
     canvas.addEventListener("touchmove", e => {
@@ -1252,19 +1285,20 @@
       const wasGesture = touchInfo.gesture;
       touchInfo.active = false;
 
-      // このタッチ中にロックが発生していたら、次ピースに対する回転・ハードドロップを抑止
       if (lockedDuringTouch) {
         lockedDuringTouch = false;
         return;
       }
 
       if (!gameStarted || gameOver) {
+        if (gameOver) {
+          if (!canRestartFromGameOver()) return;
+        }
         startGame();
         return;
       }
       if (!currentPiece || paused) return;
 
-      // gesture == none かつ ほとんど動いていない → タップとして回転
       if (wasGesture === "none" && absDx < TAP_TOL && absDy < TAP_TOL) {
         const now = endTime;
         if (now - lastTapTime < 250) {
@@ -1275,7 +1309,6 @@
           lastTapTime = now;
         }
       } else {
-        // 縦ジェスチャ/ほぼ縦方向かつ高速に大きく下スワイプ → ハードドロップ
         if ((wasGesture === "vertical" || absDy > absDx) &&
             totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
           hardDrop();
@@ -1286,12 +1319,9 @@
 
     canvas.addEventListener("click", () => {
       if (!gameStarted || gameOver) {
+        if (gameOver && !canRestartFromGameOver()) return;
         startGame();
       }
-    });
-
-    restartBtn.addEventListener("click", () => {
-      startGame();
     });
 
     holdBtn.addEventListener("click", () => {
@@ -1302,13 +1332,18 @@
       togglePause();
     });
 
-    function prepareAndStartLoop() {
-      updateBlockSizeAndThresholds();
+    restartBtn.addEventListener("click", () => {
+      if (gameOver && !canRestartFromGameOver()) return;
+      startGame();
+    });
+
+    function initAndStart() {
+      updateGeometry();
       prepareNewGame();
       requestAnimationFrame(update);
     }
 
-    prepareAndStartLoop();
+    initAndStart();
   </script>
 </body>
 </html>
