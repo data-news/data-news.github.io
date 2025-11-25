@@ -753,14 +753,18 @@
     }
 
     function lockPiece() {
-      mergePiece();
-      clearLines();           // ロック直後に必ず行消去
-      drawSidePanels();
-      if (touchInfo.active) {
-        lockedDuringTouch = true;
-      }
-      spawnPiece();
-    }
+  mergePiece();
+  clearLines();
+  drawSidePanels();
+
+  if (touchInfo.active) {
+    // ★ このロックは「進行中ジェスチャの終端」とみなす
+    lockedDuringTouch = true;
+    touchInfo.active = false;  // 以後の touchmove は無視させる
+  }
+
+  spawnPiece();
+}
 
     function holdPiece() {
       if (!currentPiece || holdUsedThisTurn || gameOver || paused || !gameStarted) return;
@@ -1291,7 +1295,15 @@
 
     canvas.addEventListener("touchend", e => {
   e.preventDefault();
+
+  // ★ ロック中に終わったタッチはここで無視（フリック持ち越し防止とセットで扱う）
+  if (lockedDuringTouch) {
+    lockedDuringTouch = false;
+    return;
+  }
+
   if (!touchInfo.active) return;
+
   const touch = e.changedTouches[0];
   const endTime = e.timeStamp;
   const totalDx = touch.clientX - touchInfo.startX;
@@ -1303,11 +1315,6 @@
   const wasGesture = touchInfo.gesture;
   touchInfo.active = false;
 
-  if (lockedDuringTouch) {
-    lockedDuringTouch = false;
-    return;
-  }
-
   if (!gameStarted || gameOver) {
     if (gameOver && !canRestartFromGameOver()) return;
     startGame();
@@ -1315,11 +1322,11 @@
   }
   if (!currentPiece || paused) return;
 
-  // ---- ここからタップ系の処理 ----
+  // ---- タップ操作：左右で回転方向を分ける ----
   if (wasGesture === "none" && absDx < TAP_TOL && absDy < TAP_TOL) {
-    // シングルタップ：左右で回転方向を分ける
     const rect = canvas.getBoundingClientRect();
     const relX = touch.clientX - rect.left;
+
     if (relX < rect.width / 2) {
       // 左半分タップ → 反時計回り
       tryRotate(false);
@@ -1328,13 +1335,13 @@
       tryRotate(true);
     }
     return;
-  } else {
-    // フリック系：下方向の素早いスワイプでハードドロップ
-    if ((wasGesture === "vertical" || absDy > absDx) &&
-        totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
-      hardDrop();
-      dropCounter = 0;
-    }
+  }
+
+  // ---- フリック操作：下方向の素早いスワイプでハードドロップ ----
+  if ((wasGesture === "vertical" || absDy > absDx) &&
+      totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
+    hardDrop();
+    dropCounter = 0;
   }
 }, { passive: false });
 
