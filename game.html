@@ -2,22 +2,34 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <title>テトリス（タッチ対応版）</title>
+  <!-- ★ スマホ向け viewport 最適化：ダブルタップズーム等を抑制 -->
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+  />
+  <title>テトリス（タッチ最適化版）</title>
   <style>
     * {
       box-sizing: border-box;
       padding: 0;
       margin: 0;
     }
+
+    /* ★ スワイプでのページ慣性スクロールを抑え、誤動作を減らす */
+    html,
+    body {
+      overscroll-behavior: none;
+    }
+
     body {
       background: radial-gradient(circle at top, #020617 0%, #000000 55%, #000000 100%);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       color: #f5f5f5;
-      min-height: 100vh;          /* Firefox対策：コンテンツが伸びることを許可 */
+      min-height: 100vh;
       display: flex;
       justify-content: center;
-      align-items: flex-start;    /* 中央揃え → 上揃え */
-      padding-top: 16px;          /* 上に少し余白 */
+      align-items: flex-start;
+      padding-top: 16px;
     }
     .tetris-wrapper {
       display: flex;
@@ -28,6 +40,7 @@
       box-shadow:
         0 24px 80px rgba(0, 0, 0, 0.9),
         0 0 0 1px rgba(148, 163, 184, 0.2);
+      max-width: 900px;
     }
     .board-wrapper {
       position: relative;
@@ -45,7 +58,7 @@
         0 0 0 2px rgba(37, 99, 235, 0.9),
         0 0 35px rgba(59, 130, 246, 0.9);
       display: block;
-      touch-action: none; /* ブラウザのスクロール・ダブルタップ拡大を抑制 */
+      touch-action: none; /* ★ キャンバス上でのスクロール・ズームを抑制 */
     }
     .side {
       display: flex;
@@ -106,6 +119,8 @@
       background: #020617;
       box-shadow: inset 0 0 6px rgba(15, 23, 42, 0.9);
     }
+
+    /* ★ ホールドボタン・ポーズボタンを大きめに */
     .touch-buttons {
       display: flex;
       gap: 8px;
@@ -113,10 +128,10 @@
     }
     .touch-buttons button {
       flex: 1;
-      padding: 6px 0;
+      padding: 12px 0;
       border-radius: 999px;
       border: none;
-      font-size: 11px;
+      font-size: 13px;
       letter-spacing: 0.08em;
       text-transform: uppercase;
       cursor: pointer;
@@ -126,12 +141,17 @@
         0 4px 12px rgba(37, 99, 235, 0.7),
         0 0 0 1px rgba(15, 23, 42, 0.9);
     }
+    /* ★ ホールドボタンをわずかに大きく */
+    #holdBtn {
+      flex: 1.3;
+    }
     .touch-buttons button:active {
       transform: translateY(1px);
       box-shadow:
         0 2px 6px rgba(37, 99, 235, 0.7),
         0 0 0 1px rgba(15, 23, 42, 0.9);
     }
+
     #restartBtn {
       margin-top: 4px;
       width: 100%;
@@ -191,6 +211,21 @@
       margin-top: 4px;
       min-height: 1.4em;
     }
+
+    /* ★ スマホ幅では縦並びにしてボタン位置も下側に寄せる */
+    @media (max-width: 720px) {
+      .tetris-wrapper {
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+      }
+      .board-wrapper {
+        margin-bottom: 12px;
+      }
+      .side {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
@@ -232,8 +267,7 @@
           <kbd>P</kbd> ポーズ
         </p>
         <p>
-          スマホ: キャンバスをタップ／スワイプで操作<br>
-          （タップで開始）
+          スマホ: キャンバスをタップ／スワイプで操作（タップで開始）
         </p>
         <div class="touch-buttons">
           <button id="holdBtn" type="button">HOLD</button>
@@ -247,7 +281,6 @@
   </div>
 
   <script>
-    // ========= 基本設定 =========
     const COLS = 10;
     const ROWS = 20;
     const BLOCK_SIZE = 30;
@@ -270,7 +303,6 @@
     const holdBtn = document.getElementById("holdBtn");
     const pauseBtn = document.getElementById("pauseBtn");
 
-    // ========= テトリミノ定義 =========
     const TETROMINOS = {
       I: [
         [0, 0, 0, 0],
@@ -326,12 +358,11 @@
       Z: "#ef4444",
       J: "#3b82f6",
       L: "#f97316",
-      G: "#4b5563" // ガーベジライン
+      G: "#4b5563"
     };
 
     const GHOST_COLOR = "rgba(148, 163, 184, 0.35)";
 
-    // ライン消去スコア
     const LINE_SCORES = {
       1: 100,
       2: 300,
@@ -339,7 +370,6 @@
       4: 800
     };
 
-    // ========= ゲーム状態 =========
     let board;
     let currentPiece = null;
     let nextQueue;
@@ -353,40 +383,38 @@
     let lastTime = 0;
     let paused = false;
     let gameOver = false;
-    let gameStarted = false; // ← タップ開始制御
+    let gameStarted = false;
 
-    // ガーベジライン
     let nextGarbageInMs = 20000;
     const MIN_GARBAGE_INTERVAL = 12000;
     const MAX_GARBAGE_INTERVAL = 26000;
 
-    // ========= エフェクト状態 =========
     let lineClearEffects = [];
     let particles = [];
     let rippleEffects = [];
     let screenFlash = { timer: 0, max: 0 };
     let tetrisTextEffects = [];
 
-    // ========= タッチ操作状態 =========
+    // ★ タッチジェスチャの種類を管理（none / horizontal / vertical）
     let touchInfo = {
       active: false,
       startX: 0,
       startY: 0,
       lastX: 0,
       lastY: 0,
-      startTime: 0,
       movedX: 0,
-      movedY: 0
+      movedY: 0,
+      startTime: 0,
+      gesture: "none"
     };
     let lastTapTime = 0;
 
-    const TAP_MOVE_THRESHOLD = 10;             // タップ判定の移動許容量(px)
-    const HORIZONTAL_STEP = BLOCK_SIZE * 0.6;  // 横移動1マス相当のスワイプ距離
-    const SOFT_DROP_THRESHOLD = 10;            // 縦移動でソフトドロップするしきい値(px)
-    const HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5; // ハードドロップ判定の最低距離
-    const HARD_DROP_TIME = 160;                // ハードドロップ判定の最大時間(ms)
+    const TAP_MOVE_THRESHOLD = 10;
+    const HORIZONTAL_STEP = BLOCK_SIZE * 0.6;
+    const SOFT_DROP_THRESHOLD = 10;
+    const HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5;
+    const HARD_DROP_TIME = 160;
 
-    // ========= ユーティリティ =========
     function createBag() {
       const bag = [...TYPES];
       for (let i = bag.length - 1; i > 0; i--) {
@@ -549,7 +577,6 @@
         triggerScreenFlash(220);
       }
 
-      // スコア・レベル
       lines += fullRows.length;
       const base = LINE_SCORES[fullRows.length] || 0;
       score += base * level;
@@ -742,7 +769,6 @@
       return y;
     }
 
-    // ========= 描画 =========
     function drawBlock(ctx2, x, y, size, color, border = true) {
       ctx2.fillStyle = color;
       ctx2.fillRect(x * size, y * size, size, size);
@@ -761,7 +787,6 @@
     function drawBoard() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 背景グリッド
       ctx.fillStyle = "#020617";
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.strokeStyle = "rgba(148,163,184,0.18)";
@@ -779,7 +804,6 @@
         ctx.stroke();
       }
 
-      // 固定ブロック
       for (let y = 0; y < ROWS; y++) {
         for (let x = 0; x < COLS; x++) {
           const type = board[y][x];
@@ -788,7 +812,6 @@
       }
 
       if (currentPiece) {
-        // ゴースト
         const ghostY = computeGhostY();
         const { matrix, x, y, type } = currentPiece;
         for (let j = 0; j < 4; j++) {
@@ -807,7 +830,6 @@
           }
         }
 
-        // 現在のピース
         for (let j = 0; j < 4; j++) {
           for (let i = 0; i < 4; i++) {
             if (!matrix[j][i]) continue;
@@ -938,7 +960,6 @@
       return `rgba(${r},${g},${b},${alpha})`;
     }
 
-    // ========= Hold / Next 描画 =========
     function drawMiniPiece(ctx2, type, canvasWidth, canvasHeight) {
       ctx2.clearRect(0, 0, canvasWidth, canvasHeight);
       if (!type) return;
@@ -1023,7 +1044,6 @@
       garbageInfo.textContent = `Incoming Garbage: ${sec}s`;
     }
 
-    // ========= ガーベジライン =========
     function addGarbageLines(count) {
       for (let c = 0; c < count; c++) {
         const line = Array(COLS).fill("G");
@@ -1040,7 +1060,6 @@
         Math.random() * (MAX_GARBAGE_INTERVAL - MIN_GARBAGE_INTERVAL);
     }
 
-    // ========= エフェクト更新 =========
     function updateEffects(delta) {
       lineClearEffects.forEach(e => { e.timer -= delta; });
       lineClearEffects = lineClearEffects.filter(e => e.timer > 0);
@@ -1076,7 +1095,6 @@
       updateGarbageInfo();
     }
 
-    // ========= メインループ =========
     function update(time = 0) {
       const delta = time - lastTime;
       lastTime = time;
@@ -1094,7 +1112,6 @@
       requestAnimationFrame(update);
     }
 
-    // ========= キーボード入力 =========
     document.addEventListener("keydown", e => {
       if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "Space"].includes(e.code)) {
         e.preventDefault();
@@ -1138,10 +1155,10 @@
       }
     });
 
-    // ========= タッチ操作（キャンバス上） =========
+    // ★ タッチ操作：縦ジェスチャと横ジェスチャを明確に分離
     canvas.addEventListener("touchstart", e => {
       e.preventDefault();
-      if (e.touches.length > 1) return; // マルチタッチ無視
+      if (e.touches.length > 1) return;
       const touch = e.touches[0];
       touchInfo.active = true;
       touchInfo.startX = touch.clientX;
@@ -1151,6 +1168,7 @@
       touchInfo.movedX = 0;
       touchInfo.movedY = 0;
       touchInfo.startTime = e.timeStamp;
+      touchInfo.gesture = "none";
     }, { passive: false });
 
     canvas.addEventListener("touchmove", e => {
@@ -1159,29 +1177,44 @@
       const touch = e.touches[0];
       const dx = touch.clientX - touchInfo.lastX;
       const dy = touch.clientY - touchInfo.lastY;
+
       touchInfo.lastX = touch.clientX;
       touchInfo.lastY = touch.clientY;
       touchInfo.movedX += dx;
       touchInfo.movedY += dy;
 
-      // 横移動：閾値を超えるたびに1マスずつ
-      const stepX = Math.trunc(touchInfo.movedX / HORIZONTAL_STEP);
-      if (stepX !== 0) {
-        const dir = Math.sign(stepX);
-        for (let i = 0; i < Math.abs(stepX); i++) {
-          if (!collides(dir, 0, currentPiece.matrix)) {
-            currentPiece.x += dir;
-          } else {
-            break;
-          }
+      const totalDx = touch.clientX - touchInfo.startX;
+      const totalDy = touch.clientY - touchInfo.startY;
+
+      // ★ 最初の大きな動きでジェスチャ種別を決める
+      if (touchInfo.gesture === "none") {
+        const absDx = Math.abs(totalDx);
+        const absDy = Math.abs(totalDy);
+        if (absDx > absDy * 1.2 && absDx > TAP_MOVE_THRESHOLD) {
+          touchInfo.gesture = "horizontal";
+        } else if (absDy > absDx * 1.2 && absDy > TAP_MOVE_THRESHOLD) {
+          touchInfo.gesture = "vertical";
         }
-        touchInfo.movedX -= stepX * HORIZONTAL_STEP;
       }
 
-      // 下方向に動かしたらソフトドロップ連打気味に
-      if (dy > SOFT_DROP_THRESHOLD) {
-        softDrop(true);
-        dropCounter = 0;
+      if (touchInfo.gesture === "horizontal") {
+        const stepX = Math.trunc(touchInfo.movedX / HORIZONTAL_STEP);
+        if (stepX !== 0) {
+          const dir = Math.sign(stepX);
+          for (let i = 0; i < Math.abs(stepX); i++) {
+            if (!collides(dir, 0, currentPiece.matrix)) {
+              currentPiece.x += dir;
+            } else {
+              break;
+            }
+          }
+          touchInfo.movedX -= stepX * HORIZONTAL_STEP;
+        }
+      } else if (touchInfo.gesture === "vertical") {
+        if (dy > SOFT_DROP_THRESHOLD) {
+          softDrop(true);
+          dropCounter = 0;
+        }
       }
     }, { passive: false });
 
@@ -1196,45 +1229,41 @@
       const absDy = Math.abs(totalDy);
       const dt = endTime - touchInfo.startTime;
 
+      const wasGesture = touchInfo.gesture;
       touchInfo.active = false;
 
-      // ゲーム開始前 or ゲームオーバー時 → タップで開始/再スタート
       if (!gameStarted || gameOver) {
         startGame();
         return;
       }
-
       if (!currentPiece || paused) return;
 
-      // ほとんど動いていなければタップ扱い → 回転
+      // ★ ほとんど動かしていない → タップとして回転
       if (absDx < TAP_MOVE_THRESHOLD && absDy < TAP_MOVE_THRESHOLD) {
         const now = endTime;
         if (now - lastTapTime < 250) {
-          // ダブルタップ → 左回転
           tryRotate(false);
           lastTapTime = 0;
         } else {
-          // シングルタップ → 右回転
           tryRotate(true);
           lastTapTime = now;
         }
       } else {
-        // 大きくかつ速い下スワイプ → ハードドロップ
-        if (totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
+        // ★ 縦ジェスチャで、かつ高速な下方向 → ハードドロップ
+        if ((wasGesture === "vertical" || absDy > absDx) &&
+            totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
           hardDrop();
           dropCounter = 0;
         }
       }
     }, { passive: false });
 
-    // PC用：クリックでも開始できるように
     canvas.addEventListener("click", () => {
       if (!gameStarted || gameOver) {
         startGame();
       }
     });
 
-    // ========= ボタン =========
     restartBtn.addEventListener("click", () => {
       startGame();
     });
@@ -1247,9 +1276,12 @@
       togglePause();
     });
 
-    // ========= 初期化 =========
-    prepareNewGame();
-    requestAnimationFrame(update);
+    function prepareAndStartLoop() {
+      prepareNewGame();
+      requestAnimationFrame(update);
+    }
+
+    prepareAndStartLoop();
   </script>
 </body>
 </html>
