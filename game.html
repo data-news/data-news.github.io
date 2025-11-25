@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>テトリス（タッチ対応版）</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0;
+    }
+    body {
+      background: radial-gradient(circle at top, #020617 0%, #000000 55%, #000000 100%);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #f5f5f5;
+      min-height: 100vh;          /* Firefox対策：コンテンツが伸びることを許可 */
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;    /* 中央揃え → 上揃え */
+      padding-top: 16px;          /* 上に少し余白 */
+    }
+    .tetris-wrapper {
+      display: flex;
+      gap: 16px;
+      padding: 16px 20px;
+      background: rgba(9, 9, 11, 0.96);
+      border-radius: 18px;
+      box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.9),
+        0 0 0 1px rgba(148, 163, 184, 0.2);
+    }
+    .board-wrapper {
+      position: relative;
+      padding: 8px;
+      border-radius: 16px;
+      background: radial-gradient(circle at top, #1e293b 0%, #020617 65%);
+      box-shadow:
+        0 0 25px rgba(59, 130, 246, 0.5),
+        inset 0 0 18px rgba(15, 23, 42, 0.9);
+    }
+    #board {
+      background: linear-gradient(180deg, #020617 0%, #020617 50%, #000000 100%);
+      border-radius: 8px;
+      box-shadow:
+        0 0 0 2px rgba(37, 99, 235, 0.9),
+        0 0 35px rgba(59, 130, 246, 0.9);
+      display: block;
+      touch-action: none; /* ブラウザのスクロール・ダブルタップ拡大を抑制 */
+    }
+    .side {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: 230px;
+    }
+    .panel {
+      background: radial-gradient(circle at top left, #111827 0%, #020617 55%);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow:
+        0 0 0 1px rgba(31, 41, 55, 0.9),
+        0 10px 25px rgba(0, 0, 0, 0.8);
+    }
+    .panel h2 {
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin-bottom: 4px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 8px;
+      font-size: 13px;
+    }
+    .stats span.label {
+      color: #6b7280;
+    }
+    .stats span.value {
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+    #holdCanvas,
+    #nextCanvas {
+      background: radial-gradient(circle at top, #020617 0%, #020617 60%, #000000 100%);
+      border-radius: 8px;
+      width: 100%;
+      display: block;
+      box-shadow:
+        0 0 0 1px rgba(31, 41, 55, 0.9),
+        inset 0 0 15px rgba(15, 23, 42, 0.9);
+    }
+    .help {
+      font-size: 11px;
+      line-height: 1.4;
+      color: #e5e7eb;
+    }
+    .help kbd {
+      display: inline-block;
+      padding: 1px 4px;
+      margin: 0 1px;
+      border-radius: 4px;
+      border: 1px solid #4b5563;
+      font-size: 10px;
+      background: #020617;
+      box-shadow: inset 0 0 6px rgba(15, 23, 42, 0.9);
+    }
+    .touch-buttons {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .touch-buttons button {
+      flex: 1;
+      padding: 6px 0;
+      border-radius: 999px;
+      border: none;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      cursor: pointer;
+      background: linear-gradient(135deg, #1d4ed8, #22c55e);
+      color: #f9fafb;
+      box-shadow:
+        0 4px 12px rgba(37, 99, 235, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    .touch-buttons button:active {
+      transform: translateY(1px);
+      box-shadow:
+        0 2px 6px rgba(37, 99, 235, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    #restartBtn {
+      margin-top: 4px;
+      width: 100%;
+      padding: 8px 0;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #3b82f6, #22c55e);
+      color: #fff;
+      box-shadow:
+        0 6px 16px rgba(59, 130, 246, 0.6),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+      transition: transform 0.05s ease, box-shadow 0.05s ease, filter 0.1s ease;
+    }
+    #restartBtn:hover {
+      filter: brightness(1.08);
+      box-shadow:
+        0 10px 28px rgba(59, 130, 246, 0.8),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    #restartBtn:active {
+      transform: translateY(1px);
+      box-shadow:
+        0 4px 12px rgba(59, 130, 246, 0.7),
+        0 0 0 1px rgba(15, 23, 42, 0.9);
+    }
+    .status-banner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+    }
+    .status-banner span {
+      padding: 8px 16px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      backdrop-filter: blur(6px);
+      font-size: 14px;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+    }
+    .status-banner span.paused {
+      color: #facc15;
+    }
+    .status-banner span.game-over {
+      color: #f97373;
+    }
+    .garbage-warning {
+      font-size: 11px;
+      color: #fca5a5;
+      margin-top: 4px;
+      min-height: 1.4em;
+    }
+  </style>
+</head>
+<body>
+  <div class="tetris-wrapper">
+    <div class="board-wrapper">
+      <canvas id="board" width="300" height="600"></canvas>
+      <div class="status-banner" id="statusBanner" style="display:none;">
+        <span id="statusText"></span>
+      </div>
+    </div>
+    <div class="side">
+      <div class="panel">
+        <h2>Stats</h2>
+        <div class="stats">
+          <span class="label">Score</span><span class="value" id="score">0</span>
+          <span class="label">Lines</span><span class="value" id="lines">0</span>
+          <span class="label">Level</span><span class="value" id="level">1</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Hold</h2>
+        <canvas id="holdCanvas" width="120" height="80"></canvas>
+      </div>
+
+      <div class="panel">
+        <h2>Next</h2>
+        <canvas id="nextCanvas" width="120" height="200"></canvas>
+      </div>
+
+      <div class="panel help">
+        <h2>Controls</h2>
+        <p>
+          PC: <kbd>←</kbd><kbd>→</kbd> 移動 /
+          <kbd>↓</kbd> ドロップ /
+          <kbd>↑</kbd><kbd>Z</kbd><kbd>X</kbd> 回転 /
+          <kbd>Space</kbd> ハードドロップ /
+          <kbd>Shift</kbd> ホールド /
+          <kbd>P</kbd> ポーズ
+        </p>
+        <p>
+          スマホ: キャンバスをタップ／スワイプで操作<br>
+          （タップで開始）
+        </p>
+        <div class="touch-buttons">
+          <button id="holdBtn" type="button">HOLD</button>
+          <button id="pauseBtn" type="button">PAUSE</button>
+        </div>
+        <p class="garbage-warning" id="garbageInfo"></p>
+      </div>
+
+      <button id="restartBtn">Restart</button>
+    </div>
+  </div>
+
+  <script>
+    // ========= 基本設定 =========
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 30;
+
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+
+    const holdCanvas = document.getElementById("holdCanvas");
+    const holdCtx = holdCanvas.getContext("2d");
+    const nextCanvas = document.getElementById("nextCanvas");
+    const nextCtx = nextCanvas.getContext("2d");
+
+    const scoreEl = document.getElementById("score");
+    const linesEl = document.getElementById("lines");
+    const levelEl = document.getElementById("level");
+    const restartBtn = document.getElementById("restartBtn");
+    const statusBanner = document.getElementById("statusBanner");
+    const statusText = document.getElementById("statusText");
+    const garbageInfo = document.getElementById("garbageInfo");
+    const holdBtn = document.getElementById("holdBtn");
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    // ========= テトリミノ定義 =========
+    const TETROMINOS = {
+      I: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 1],
+        [0, 0, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      O: [
+        [0, 0, 0, 0],
+        [0, 1, 1, 0],
+        [0, 1, 1, 0],
+        [0, 0, 0, 0]
+      ],
+      T: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 0],
+        [0, 1, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      S: [
+        [0, 0, 0, 0],
+        [0, 1, 1, 0],
+        [1, 1, 0, 0],
+        [0, 0, 0, 0]
+      ],
+      Z: [
+        [0, 0, 0, 0],
+        [1, 1, 0, 0],
+        [0, 1, 1, 0],
+        [0, 0, 0, 0]
+      ],
+      J: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 0]
+      ],
+      L: [
+        [0, 0, 0, 0],
+        [1, 1, 1, 0],
+        [1, 0, 0, 0],
+        [0, 0, 0, 0]
+      ]
+    };
+
+    const TYPES = Object.keys(TETROMINOS);
+
+    const COLORS = {
+      I: "#0ea5e9",
+      O: "#eab308",
+      T: "#a855f7",
+      S: "#22c55e",
+      Z: "#ef4444",
+      J: "#3b82f6",
+      L: "#f97316",
+      G: "#4b5563" // ガーベジライン
+    };
+
+    const GHOST_COLOR = "rgba(148, 163, 184, 0.35)";
+
+    // ライン消去スコア
+    const LINE_SCORES = {
+      1: 100,
+      2: 300,
+      3: 500,
+      4: 800
+    };
+
+    // ========= ゲーム状態 =========
+    let board;
+    let currentPiece = null;
+    let nextQueue;
+    let holdType = null;
+    let holdUsedThisTurn = false;
+    let score = 0;
+    let lines = 0;
+    let level = 1;
+    let dropCounter = 0;
+    let dropInterval = 1000;
+    let lastTime = 0;
+    let paused = false;
+    let gameOver = false;
+    let gameStarted = false; // ← タップ開始制御
+
+    // ガーベジライン
+    let nextGarbageInMs = 20000;
+    const MIN_GARBAGE_INTERVAL = 12000;
+    const MAX_GARBAGE_INTERVAL = 26000;
+
+    // ========= エフェクト状態 =========
+    let lineClearEffects = [];
+    let particles = [];
+    let rippleEffects = [];
+    let screenFlash = { timer: 0, max: 0 };
+    let tetrisTextEffects = [];
+
+    // ========= タッチ操作状態 =========
+    let touchInfo = {
+      active: false,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      startTime: 0,
+      movedX: 0,
+      movedY: 0
+    };
+    let lastTapTime = 0;
+
+    const TAP_MOVE_THRESHOLD = 10;             // タップ判定の移動許容量(px)
+    const HORIZONTAL_STEP = BLOCK_SIZE * 0.6;  // 横移動1マス相当のスワイプ距離
+    const SOFT_DROP_THRESHOLD = 10;            // 縦移動でソフトドロップするしきい値(px)
+    const HARD_DROP_DISTANCE = BLOCK_SIZE * 1.5; // ハードドロップ判定の最低距離
+    const HARD_DROP_TIME = 160;                // ハードドロップ判定の最大時間(ms)
+
+    // ========= ユーティリティ =========
+    function createBag() {
+      const bag = [...TYPES];
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      return bag;
+    }
+
+    function createEmptyBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    }
+
+    function cloneMatrix(m) {
+      return m.map(row => row.slice());
+    }
+
+    function resetCoreState() {
+      board = createEmptyBoard();
+      nextQueue = createBag();
+      holdType = null;
+      holdUsedThisTurn = false;
+      score = 0;
+      lines = 0;
+      level = 1;
+      dropCounter = 0;
+      updateDropInterval();
+      paused = false;
+      gameOver = false;
+      gameStarted = false;
+      currentPiece = null;
+      lineClearEffects = [];
+      particles = [];
+      rippleEffects = [];
+      screenFlash = { timer: 0, max: 0 };
+      tetrisTextEffects = [];
+      resetGarbageTimer();
+      updateUI();
+      drawSidePanels();
+    }
+
+    function prepareNewGame() {
+      resetCoreState();
+      showStatus("TAP TO START", false);
+    }
+
+    function startGame() {
+      resetCoreState();
+      hideStatus();
+      gameStarted = true;
+      spawnPiece();
+    }
+
+    function updateDropInterval() {
+      dropInterval = Math.max(120, 1000 - (level - 1) * 70);
+    }
+
+    function newPiece(type) {
+      return {
+        type,
+        matrix: cloneMatrix(TETROMINOS[type]),
+        x: 3,
+        y: -1
+      };
+    }
+
+    function spawnPiece() {
+      if (nextQueue.length < 7) {
+        nextQueue = nextQueue.concat(createBag());
+      }
+      const type = nextQueue.shift();
+      currentPiece = newPiece(type);
+      holdUsedThisTurn = false;
+
+      if (collides(0, 0, currentPiece.matrix, currentPiece.x, currentPiece.y)) {
+        gameOver = true;
+        gameStarted = false;
+        showStatus("GAME OVER", true);
+      }
+      drawSidePanels();
+    }
+
+    function collides(offsetX, offsetY, matrix, px, py) {
+      const xPos = px !== undefined ? px : currentPiece.x;
+      const yPos = py !== undefined ? py : currentPiece.y;
+
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          if (!matrix[y][x]) continue;
+          const nx = xPos + x + offsetX;
+          const ny = yPos + y + offsetY;
+          if (ny < 0) continue;
+          if (nx < 0 || nx >= COLS || ny >= ROWS) return true;
+          if (board[ny][nx]) return true;
+        }
+      }
+      return false;
+    }
+
+    function mergePiece() {
+      const { matrix, x, y, type } = currentPiece;
+      for (let j = 0; j < 4; j++) {
+        for (let i = 0; i < 4; i++) {
+          if (!matrix[j][i]) continue;
+          const ny = y + j;
+          const nx = x + i;
+          if (ny >= 0) board[ny][nx] = type;
+        }
+      }
+    }
+
+    function clearLines() {
+      let fullRows = [];
+      for (let y = 0; y < ROWS; y++) {
+        let full = true;
+        for (let x = 0; x < COLS; x++) {
+          if (!board[y][x]) {
+            full = false;
+            break;
+          }
+        }
+        if (full) fullRows.push(y);
+      }
+      if (fullRows.length === 0) return;
+
+      const clearedCells = [];
+      for (const y of fullRows) {
+        for (let x = 0; x < COLS; x++) {
+          if (board[y][x]) {
+            clearedCells.push({ x, y, type: board[y][x] });
+          }
+        }
+      }
+
+      spawnParticlesForClearedCells(clearedCells);
+
+      lineClearEffects.push({
+        rows: fullRows.slice(),
+        timer: 280,
+        max: 280,
+        isTetris: fullRows.length === 4
+      });
+
+      if (fullRows.length === 4) {
+        triggerScreenFlash(520);
+        rippleEffects.push({
+          x: (COLS * BLOCK_SIZE) / 2,
+          y: (ROWS * BLOCK_SIZE) / 2,
+          radius: 0,
+          speed: 0.7 * BLOCK_SIZE,
+          timer: 600,
+          max: 600
+        });
+        tetrisTextEffects.push({
+          text: "TETRIS!",
+          timer: 900,
+          max: 900
+        });
+      } else {
+        triggerScreenFlash(220);
+      }
+
+      // スコア・レベル
+      lines += fullRows.length;
+      const base = LINE_SCORES[fullRows.length] || 0;
+      score += base * level;
+      const newLevel = Math.floor(lines / 10) + 1;
+      if (newLevel !== level) {
+        level = newLevel;
+        updateDropInterval();
+      }
+
+      const sorted = fullRows.slice().sort((a, b) => b - a);
+      for (const y of sorted) {
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(null));
+      }
+    }
+
+    function triggerScreenFlash(duration) {
+      screenFlash.timer = duration;
+      screenFlash.max = duration;
+    }
+
+    function spawnParticlesForClearedCells(cells) {
+      const centerX = COLS / 2;
+      const centerY = ROWS / 2;
+
+      for (const cell of cells) {
+        const baseColor = COLORS[cell.type] || "#e5e7eb";
+        const px = cell.x + 0.5;
+        const py = cell.y + 0.5;
+        const count = 5;
+
+        for (let i = 0; i < count; i++) {
+          const isInward = Math.random() < 0.5;
+          let vx, vy;
+
+          if (isInward) {
+            let dx = centerX - px;
+            let dy = centerY - py;
+            const len = Math.sqrt(dx * dx + dy * dy) || 1;
+            dx /= len;
+            dy /= len;
+            const speed = 0.006 + Math.random() * 0.008;
+            vx = dx * speed;
+            vy = dy * speed;
+          } else {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.01 + Math.random() * 0.02;
+            vx = Math.cos(angle) * speed;
+            vy = Math.sin(angle) * speed;
+          }
+
+          const life = 400 + Math.random() * 300;
+          particles.push({
+            x: px,
+            y: py,
+            vx,
+            vy,
+            life,
+            maxLife: life,
+            color: baseColor
+          });
+        }
+      }
+    }
+
+    function rotateMatrixCW(matrix) {
+      const result = Array.from({ length: 4 }, () => Array(4).fill(0));
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          result[x][3 - y] = matrix[y][x];
+        }
+      }
+      return result;
+    }
+
+    function rotateMatrixCCW(matrix) {
+      const result = Array.from({ length: 4 }, () => Array(4).fill(0));
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          result[3 - x][y] = matrix[y][x];
+        }
+      }
+      return result;
+    }
+
+    function tryRotate(clockwise = true) {
+      if (!currentPiece) return;
+      const original = currentPiece.matrix;
+      const rotated = clockwise ? rotateMatrixCW(original) : rotateMatrixCCW(original);
+
+      const offsets = [
+        { x: 0, y: 0 },
+        { x: -1, y: 0 },
+        { x: 1, y: 0 },
+        { x: -2, y: 0 },
+        { x: 2, y: 0 },
+        { x: 0, y: -1 }
+      ];
+
+      for (const off of offsets) {
+        if (!collides(off.x, off.y, rotated)) {
+          currentPiece.matrix = rotated;
+          currentPiece.x += off.x;
+          currentPiece.y += off.y;
+          return;
+        }
+      }
+    }
+
+    function hardDrop() {
+      if (!currentPiece || gameOver || paused || !gameStarted) return;
+      let dropDistance = 0;
+      while (!collides(0, 1, currentPiece.matrix)) {
+        currentPiece.y++;
+        dropDistance++;
+      }
+      if (dropDistance > 0) {
+        score += dropDistance * 2;
+      }
+      lockPiece();
+    }
+
+    function softDrop(fromUser = false) {
+      if (!currentPiece || gameOver || !gameStarted) return;
+      if (!collides(0, 1, currentPiece.matrix)) {
+        currentPiece.y++;
+        if (fromUser) {
+          score += 1;
+        }
+      } else {
+        lockPiece();
+      }
+    }
+
+    function lockPiece() {
+      mergePiece();
+      clearLines();
+      spawnPiece();
+    }
+
+    function holdPiece() {
+      if (!currentPiece || holdUsedThisTurn || gameOver || paused || !gameStarted) return;
+      const type = currentPiece.type;
+      if (holdType === null) {
+        holdType = type;
+        spawnPiece();
+      } else {
+        const temp = holdType;
+        holdType = type;
+        currentPiece = newPiece(temp);
+      }
+      holdUsedThisTurn = true;
+      drawSidePanels();
+    }
+
+    function updateUI() {
+      scoreEl.textContent = score;
+      linesEl.textContent = lines;
+      levelEl.textContent = level;
+    }
+
+    function showStatus(text, isGameOver = false) {
+      statusBanner.style.display = "flex";
+      statusText.textContent = text;
+      statusText.className = isGameOver ? "game-over" : "paused";
+    }
+
+    function hideStatus() {
+      statusBanner.style.display = "none";
+      statusText.textContent = "";
+      statusText.className = "";
+    }
+
+    function togglePause() {
+      if (gameOver || !gameStarted) return;
+      paused = !paused;
+      if (paused) {
+        showStatus("PAUSED", false);
+      } else {
+        hideStatus();
+      }
+    }
+
+    function computeGhostY() {
+      if (!currentPiece) return 0;
+      let y = currentPiece.y;
+      while (!collides(0, 1, currentPiece.matrix, currentPiece.x, y)) {
+        y++;
+      }
+      return y;
+    }
+
+    // ========= 描画 =========
+    function drawBlock(ctx2, x, y, size, color, border = true) {
+      ctx2.fillStyle = color;
+      ctx2.fillRect(x * size, y * size, size, size);
+      if (border) {
+        ctx2.lineWidth = 1;
+        ctx2.strokeStyle = "rgba(15,23,42,0.9)";
+        ctx2.strokeRect(
+          x * size + 0.5,
+          y * size + 0.5,
+          size - 1,
+          size - 1
+        );
+      }
+    }
+
+    function drawBoard() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 背景グリッド
+      ctx.fillStyle = "#020617";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.strokeStyle = "rgba(148,163,184,0.18)";
+      ctx.lineWidth = 1;
+      for (let x = 0; x <= COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * BLOCK_SIZE + 0.5, 0);
+        ctx.lineTo(x * BLOCK_SIZE + 0.5, ROWS * BLOCK_SIZE);
+        ctx.stroke();
+      }
+      for (let y = 0; y <= ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * BLOCK_SIZE + 0.5);
+        ctx.lineTo(COLS * BLOCK_SIZE, y * BLOCK_SIZE + 0.5);
+        ctx.stroke();
+      }
+
+      // 固定ブロック
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const type = board[y][x];
+          if (type) drawBlock(ctx, x, y, BLOCK_SIZE, COLORS[type]);
+        }
+      }
+
+      if (currentPiece) {
+        // ゴースト
+        const ghostY = computeGhostY();
+        const { matrix, x, y, type } = currentPiece;
+        for (let j = 0; j < 4; j++) {
+          for (let i = 0; i < 4; i++) {
+            if (!matrix[j][i]) continue;
+            const gx = x + i;
+            const gy = ghostY + j;
+            if (gy < 0) continue;
+            ctx.fillStyle = GHOST_COLOR;
+            ctx.fillRect(
+              gx * BLOCK_SIZE + 4,
+              gy * BLOCK_SIZE + 4,
+              BLOCK_SIZE - 8,
+              BLOCK_SIZE - 8
+            );
+          }
+        }
+
+        // 現在のピース
+        for (let j = 0; j < 4; j++) {
+          for (let i = 0; i < 4; i++) {
+            if (!matrix[j][i]) continue;
+            const nx = x + i;
+            const ny = y + j;
+            if (ny < 0) continue;
+            drawBlock(ctx, nx, ny, BLOCK_SIZE, COLORS[type]);
+          }
+        }
+      }
+
+      drawLineClearEffects();
+      drawParticles();
+      drawRipples();
+      drawScreenFlash();
+      drawTetrisText();
+      drawGarbageWarningVisual();
+    }
+
+    function drawLineClearEffects() {
+      for (const eff of lineClearEffects) {
+        const alpha = Math.max(eff.timer / eff.max, 0);
+        ctx.save();
+        ctx.globalCompositeOperation = "screen";
+        const baseAlpha = eff.isTetris ? 0.55 : 0.35;
+        ctx.fillStyle = `rgba(255,255,255,${baseAlpha * alpha})`;
+        for (const row of eff.rows) {
+          ctx.fillRect(
+            0,
+            row * BLOCK_SIZE,
+            COLS * BLOCK_SIZE,
+            BLOCK_SIZE
+          );
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawParticles() {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      for (const p of particles) {
+        const lifeRatio = p.life / p.maxLife;
+        const size = 3 + 3 * lifeRatio;
+        const alpha = 0.25 + 0.55 * lifeRatio;
+        ctx.fillStyle = hexToRgba(p.color, alpha);
+        ctx.fillRect(
+          p.x * BLOCK_SIZE - size / 2,
+          p.y * BLOCK_SIZE - size / 2,
+          size,
+          size
+        );
+      }
+      ctx.restore();
+    }
+
+    function drawRipples() {
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      for (const r of rippleEffects) {
+        const alpha = Math.max(r.timer / r.max, 0);
+        ctx.beginPath();
+        ctx.arc(r.x, r.y, r.radius, 0, Math.PI * 2);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = `rgba(56,189,248,${0.45 * alpha})`;
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawScreenFlash() {
+      if (screenFlash.timer <= 0) return;
+      const ratio = screenFlash.timer / screenFlash.max;
+      const alpha = 0.7 * ratio;
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.restore();
+    }
+
+    function drawTetrisText() {
+      ctx.save();
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const t of tetrisTextEffects) {
+        const ratio = t.timer / t.max;
+        const alpha = Math.min(1, 1.1 * ratio);
+        const yOffset = (1 - ratio) * 40;
+        ctx.font = "bold 40px system-ui, sans-serif";
+        ctx.fillStyle = `rgba(248,250,252,${alpha})`;
+        ctx.strokeStyle = `rgba(59,130,246,${alpha})`;
+        ctx.lineWidth = 2;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2 + yOffset;
+        ctx.fillText(t.text, cx, cy);
+        ctx.strokeText(t.text, cx, cy);
+      }
+      ctx.restore();
+    }
+
+    function drawGarbageWarningVisual() {
+      const threshold = 3500;
+      if (nextGarbageInMs > threshold) return;
+      const ratio = 1 - nextGarbageInMs / threshold;
+      const alpha = 0.15 + 0.25 * ratio;
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = `rgba(248,113,113,${alpha})`;
+      ctx.fillRect(
+        0,
+        (ROWS - 2) * BLOCK_SIZE,
+        COLS * BLOCK_SIZE,
+        2 * BLOCK_SIZE
+      );
+      ctx.restore();
+    }
+
+    function hexToRgba(hex, alpha) {
+      let c = hex.replace("#", "");
+      if (c.length === 3) {
+        c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
+      }
+      const num = parseInt(c, 16);
+      const r = (num >> 16) & 255;
+      const g = (num >> 8) & 255;
+      const b = num & 255;
+      return `rgba(${r},${g},${b},${alpha})`;
+    }
+
+    // ========= Hold / Next 描画 =========
+    function drawMiniPiece(ctx2, type, canvasWidth, canvasHeight) {
+      ctx2.clearRect(0, 0, canvasWidth, canvasHeight);
+      if (!type) return;
+      const matrix = TETROMINOS[type];
+      const size = 20;
+
+      let minX = 4, maxX = -1, minY = 4, maxY = -1;
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          if (matrix[y][x]) {
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        }
+      }
+      const w = maxX - minX + 1;
+      const h = maxY - minY + 1;
+      const offsetX = Math.floor((canvasWidth / size - w) / 2) - minX;
+      const offsetY = Math.floor((canvasHeight / size - h) / 2) - minY;
+
+      for (let y = 0; y < 4; y++) {
+        for (let x = 0; x < 4; x++) {
+          if (!matrix[y][x]) continue;
+          drawBlock(ctx2, x + offsetX, y + offsetY, size, COLORS[type]);
+        }
+      }
+    }
+
+    function drawHold() {
+      drawMiniPiece(holdCtx, holdType, holdCanvas.width, holdCanvas.height);
+    }
+
+    function drawNext() {
+      nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      const previewCount = 5;
+      const size = 18;
+      const verticalGap = 4;
+
+      for (let index = 0; index < Math.min(previewCount, nextQueue.length); index++) {
+        const type = nextQueue[index];
+        const matrix = TETROMINOS[type];
+
+        let minX = 4, maxX = -1, minY = 4, maxY = -1;
+        for (let y = 0; y < 4; y++) {
+          for (let x = 0; x < 4; x++) {
+            if (matrix[y][x]) {
+              if (x < minX) minX = x;
+              if (x > maxX) maxX = x;
+              if (y < minY) minY = y;
+              if (y > maxY) maxY = y;
+            }
+          }
+        }
+        const w = maxX - minX + 1;
+        const h = maxY - minY + 1;
+        const offsetX = Math.floor((nextCanvas.width / size - w) / 2) - minX;
+        const areaHeight = 4 * size + verticalGap;
+        const baseY = index * areaHeight;
+        const offsetY = Math.floor((4 - h) / 2) - minY;
+
+        for (let y = 0; y < 4; y++) {
+          for (let x = 0; x < 4; x++) {
+            if (!matrix[y][x]) continue;
+            const drawY = baseY / size + y + offsetY;
+            drawBlock(nextCtx, x + offsetX, drawY, size, COLORS[type]);
+          }
+        }
+      }
+    }
+
+    function drawSidePanels() {
+      updateUI();
+      drawHold();
+      drawNext();
+      updateGarbageInfo();
+    }
+
+    function updateGarbageInfo() {
+      const sec = (nextGarbageInMs / 1000).toFixed(1);
+      garbageInfo.textContent = `Incoming Garbage: ${sec}s`;
+    }
+
+    // ========= ガーベジライン =========
+    function addGarbageLines(count) {
+      for (let c = 0; c < count; c++) {
+        const line = Array(COLS).fill("G");
+        const holeX = Math.floor(Math.random() * COLS);
+        line[holeX] = null;
+        board.shift();
+        board.push(line);
+      }
+    }
+
+    function resetGarbageTimer() {
+      nextGarbageInMs =
+        MIN_GARBAGE_INTERVAL +
+        Math.random() * (MAX_GARBAGE_INTERVAL - MIN_GARBAGE_INTERVAL);
+    }
+
+    // ========= エフェクト更新 =========
+    function updateEffects(delta) {
+      lineClearEffects.forEach(e => { e.timer -= delta; });
+      lineClearEffects = lineClearEffects.filter(e => e.timer > 0);
+
+      particles.forEach(p => {
+        p.life -= delta;
+        p.x += p.vx * delta;
+        p.y += p.vy * delta;
+      });
+      particles = particles.filter(p => p.life > 0);
+
+      rippleEffects.forEach(r => {
+        r.timer -= delta;
+        r.radius += r.speed * (delta / 16);
+      });
+      rippleEffects = rippleEffects.filter(r => r.timer > 0);
+
+      if (screenFlash.timer > 0) {
+        screenFlash.timer -= delta;
+        if (screenFlash.timer < 0) screenFlash.timer = 0;
+      }
+
+      tetrisTextEffects.forEach(t => { t.timer -= delta; });
+      tetrisTextEffects = tetrisTextEffects.filter(t => t.timer > 0);
+
+      if (gameStarted && !gameOver && !paused) {
+        nextGarbageInMs -= delta;
+        if (nextGarbageInMs <= 0) {
+          addGarbageLines(1);
+          resetGarbageTimer();
+        }
+      }
+      updateGarbageInfo();
+    }
+
+    // ========= メインループ =========
+    function update(time = 0) {
+      const delta = time - lastTime;
+      lastTime = time;
+
+      if (gameStarted && !paused && !gameOver) {
+        dropCounter += delta;
+        if (dropCounter > dropInterval) {
+          softDrop(false);
+          dropCounter = 0;
+        }
+      }
+
+      updateEffects(delta);
+      drawBoard();
+      requestAnimationFrame(update);
+    }
+
+    // ========= キーボード入力 =========
+    document.addEventListener("keydown", e => {
+      if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "Space"].includes(e.code)) {
+        e.preventDefault();
+      }
+
+      if (!currentPiece || gameOver || !gameStarted) {
+        if (e.code === "KeyP") togglePause();
+        return;
+      }
+      if (paused && e.code !== "KeyP") return;
+
+      switch (e.code) {
+        case "ArrowLeft":
+          if (!collides(-1, 0, currentPiece.matrix)) currentPiece.x--;
+          break;
+        case "ArrowRight":
+          if (!collides(1, 0, currentPiece.matrix)) currentPiece.x++;
+          break;
+        case "ArrowDown":
+          softDrop(true);
+          dropCounter = 0;
+          break;
+        case "ArrowUp":
+        case "KeyX":
+          tryRotate(true);
+          break;
+        case "KeyZ":
+          tryRotate(false);
+          break;
+        case "Space":
+          hardDrop();
+          dropCounter = 0;
+          break;
+        case "ShiftLeft":
+        case "ShiftRight":
+          holdPiece();
+          break;
+        case "KeyP":
+          togglePause();
+          break;
+      }
+    });
+
+    // ========= タッチ操作（キャンバス上） =========
+    canvas.addEventListener("touchstart", e => {
+      e.preventDefault();
+      if (e.touches.length > 1) return; // マルチタッチ無視
+      const touch = e.touches[0];
+      touchInfo.active = true;
+      touchInfo.startX = touch.clientX;
+      touchInfo.startY = touch.clientY;
+      touchInfo.lastX = touch.clientX;
+      touchInfo.lastY = touch.clientY;
+      touchInfo.movedX = 0;
+      touchInfo.movedY = 0;
+      touchInfo.startTime = e.timeStamp;
+    }, { passive: false });
+
+    canvas.addEventListener("touchmove", e => {
+      e.preventDefault();
+      if (!touchInfo.active || !gameStarted || paused || gameOver || !currentPiece) return;
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchInfo.lastX;
+      const dy = touch.clientY - touchInfo.lastY;
+      touchInfo.lastX = touch.clientX;
+      touchInfo.lastY = touch.clientY;
+      touchInfo.movedX += dx;
+      touchInfo.movedY += dy;
+
+      // 横移動：閾値を超えるたびに1マスずつ
+      const stepX = Math.trunc(touchInfo.movedX / HORIZONTAL_STEP);
+      if (stepX !== 0) {
+        const dir = Math.sign(stepX);
+        for (let i = 0; i < Math.abs(stepX); i++) {
+          if (!collides(dir, 0, currentPiece.matrix)) {
+            currentPiece.x += dir;
+          } else {
+            break;
+          }
+        }
+        touchInfo.movedX -= stepX * HORIZONTAL_STEP;
+      }
+
+      // 下方向に動かしたらソフトドロップ連打気味に
+      if (dy > SOFT_DROP_THRESHOLD) {
+        softDrop(true);
+        dropCounter = 0;
+      }
+    }, { passive: false });
+
+    canvas.addEventListener("touchend", e => {
+      e.preventDefault();
+      if (!touchInfo.active) return;
+      const touch = e.changedTouches[0];
+      const endTime = e.timeStamp;
+      const totalDx = touch.clientX - touchInfo.startX;
+      const totalDy = touch.clientY - touchInfo.startY;
+      const absDx = Math.abs(totalDx);
+      const absDy = Math.abs(totalDy);
+      const dt = endTime - touchInfo.startTime;
+
+      touchInfo.active = false;
+
+      // ゲーム開始前 or ゲームオーバー時 → タップで開始/再スタート
+      if (!gameStarted || gameOver) {
+        startGame();
+        return;
+      }
+
+      if (!currentPiece || paused) return;
+
+      // ほとんど動いていなければタップ扱い → 回転
+      if (absDx < TAP_MOVE_THRESHOLD && absDy < TAP_MOVE_THRESHOLD) {
+        const now = endTime;
+        if (now - lastTapTime < 250) {
+          // ダブルタップ → 左回転
+          tryRotate(false);
+          lastTapTime = 0;
+        } else {
+          // シングルタップ → 右回転
+          tryRotate(true);
+          lastTapTime = now;
+        }
+      } else {
+        // 大きくかつ速い下スワイプ → ハードドロップ
+        if (totalDy > HARD_DROP_DISTANCE && dt < HARD_DROP_TIME) {
+          hardDrop();
+          dropCounter = 0;
+        }
+      }
+    }, { passive: false });
+
+    // PC用：クリックでも開始できるように
+    canvas.addEventListener("click", () => {
+      if (!gameStarted || gameOver) {
+        startGame();
+      }
+    });
+
+    // ========= ボタン =========
+    restartBtn.addEventListener("click", () => {
+      startGame();
+    });
+
+    holdBtn.addEventListener("click", () => {
+      holdPiece();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      togglePause();
+    });
+
+    // ========= 初期化 =========
+    prepareNewGame();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
