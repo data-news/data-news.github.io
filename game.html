@@ -568,70 +568,71 @@
     }
 
     function clearLines() {
-      let fullRows = [];
-      for (let y = 0; y < ROWS; y++) {
+    let fullRows = [];
+    for (let y = 0; y < ROWS; y++) {
         let full = true;
         for (let x = 0; x < COLS; x++) {
-          if (!board[y][x]) {
+        if (!board[y][x]) {
             full = false;
             break;
-          }
+        }
         }
         if (full) fullRows.push(y);
-      }
-      if (fullRows.length === 0) return;
+    }
+    if (fullRows.length === 0) return;
 
-      const clearedCells = [];
-      for (const y of fullRows) {
+    const clearedCells = [];
+    for (const y of fullRows) {
         for (let x = 0; x < COLS; x++) {
-          if (board[y][x]) {
+        if (board[y][x]) {
             clearedCells.push({ x, y, type: board[y][x] });
-          }
         }
-      }
+        }
+    }
 
-      spawnParticlesForClearedCells(clearedCells);
+    spawnParticlesForClearedCells(clearedCells);
 
-      lineClearEffects.push({
+    lineClearEffects.push({
         rows: fullRows.slice(),
         timer: 280,
         max: 280,
         isTetris: fullRows.length === 4
-      });
+    });
 
-      if (fullRows.length === 4) {
+    if (fullRows.length === 4) {
         triggerScreenFlash(520);
         rippleEffects.push({
-          x: (COLS * BLOCK_SIZE) / 2,
-          y: (ROWS * BLOCK_SIZE) / 2,
-          radius: 0,
-          speed: 0.7 * BLOCK_SIZE,
-          timer: 600,
-          max: 600
+        x: (COLS * BLOCK_SIZE) / 2,
+        y: (ROWS * BLOCK_SIZE) / 2,
+        radius: 0,
+        speed: 0.7 * BLOCK_SIZE,
+        timer: 600,
+        max: 600
         });
         tetrisTextEffects.push({
-          text: "TETRIS!",
-          timer: 900,
-          max: 900
+        text: "TETRIS!",
+        timer: 900,
+        max: 900
         });
-      } else {
+    } else {
         triggerScreenFlash(220);
-      }
+    }
 
-      lines += fullRows.length;
-      const base = LINE_SCORES[fullRows.length] || 0;
-      score += base * level;
-      const newLevel = Math.floor(lines / 10) + 1;
-      if (newLevel !== level) {
+    lines += fullRows.length;
+    const base = LINE_SCORES[fullRows.length] || 0;
+    score += base * level;
+    const newLevel = Math.floor(lines / 10) + 1;
+    if (newLevel !== level) {
         level = newLevel;
         updateDropInterval();
-      }
+    }
 
-      const sorted = fullRows.slice().sort((a, b) => b - a);
-      for (const y of sorted) {
+    // ★ ここを「昇順」で処理するように変更
+    const sorted = fullRows.slice().sort((a, b) => a - b);
+    for (const y of sorted) {
         board.splice(y, 1);
         board.unshift(Array(COLS).fill(null));
-      }
+    }
     }
 
     function triggerScreenFlash(duration) {
